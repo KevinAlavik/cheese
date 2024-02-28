@@ -25,9 +25,8 @@ mov cl, 0x02 ; This is the sector we want to read.
 mov dl, [BOOT_DRIVE] ; This is the drive we want to read.
 int 13h ; No error management, do your homework Kevin!
 
-mov ah, 0x0
-mov al, 0x3
-int 0x10  ; text mode, clears the screen
+mov ax,0x13
+int 0x10 ; graphics mode, clears the screen
 
 CODE_SEG equ GDT_code - GDT_start
 DATA_SEG equ GDT_data - GDT_start
