@@ -1,2 +1,2 @@
 # cheese
-A (stupid) bootloader for x86_64
+A (stupid) bootloader and OS for x86_64
