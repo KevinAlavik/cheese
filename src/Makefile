@@ -4,8 +4,8 @@ LD=ld
 QEMU=qemu-system-i386
 
 NASM_FLAGS=-f bin
-GCC_FLAGS=-std=gnu11 -ffreestanding -fno-stack-protector -fno-stack-check -fno-lto -fno-PIE -fno-PIC -m32 -g -nostdinc
-LD_FLAGS=-Isrc/kernel/include -m elf_i386 -static -nostdlib -Ttext 0x1000 --ignore-unresolved-symbol _GLOBAL_OFFSET_TABLE_ --oformat binary
+GCC_FLAGS=-std=gnu11 -ffreestanding -fno-stack-protector -fno-stack-check -fno-lto -fno-PIE -fno-PIC -m32 -g -nostdinc -I$(KERNEL_DIR)/include
+LD_FLAGS=-I$(KERNEL_DIR)/include -m elf_i386 -static -nostdlib -Ttext 0x1000 --ignore-unresolved-symbol _GLOBAL_OFFSET_TABLE_ --oformat binary
 
 BOOT_DIR=boot
 KERNEL_DIR=kernel
