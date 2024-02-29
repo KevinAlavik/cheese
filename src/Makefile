@@ -1,50 +1,59 @@
+# Compiler and linker options
 NASM=nasm
 GCC=gcc
 LD=ld
 QEMU=qemu-system-i386
 
-NASM_FLAGS=-f bin
-GCC_FLAGS=-std=gnu11 -ffreestanding -fno-stack-protector -fno-stack-check -fno-lto -fno-PIE -fno-PIC -m32 -g -nostdinc -I$(KERNEL_DIR)/include
-LD_FLAGS=-I$(KERNEL_DIR)/include -m elf_i386 -static -nostdlib -Ttext 0x1000 --ignore-unresolved-symbol _GLOBAL_OFFSET_TABLE_ --oformat binary
-
+# Directories
+SRC_DIR=kernel
+INC_DIR=kernel/include
 BOOT_DIR=boot
-KERNEL_DIR=kernel
 BIN_DIR=bin
-TOOLS_DIR=tools
 
-all: bootloader kernel cheese_install
+# Source files
+BOOT_ASM=$(wildcard $(BOOT_DIR)/*.asm)
+KERNEL_ASM=$(wildcard $(SRC_DIR)/*.asm)
+KERNEL_C=$(wildcard $(SRC_DIR)/*.c)
+KERNEL_HEADERS=$(shell find $(INC_DIR) -name '*.h')
+ZEROES_ASM=$(BOOT_DIR)/zeroes.asm
 
-bootloader: $(BIN_DIR)/bootloader.bin $(BIN_DIR)/cheese.bin
+# Object files
+BOOTLOADER_OBJ=$(patsubst $(BOOT_DIR)/%.asm,$(BIN_DIR)/%.bin,$(BOOT_ASM))
+KERNEL_ASM_OBJ=$(patsubst $(SRC_DIR)/%.asm,$(BIN_DIR)/%.o,$(KERNEL_ASM))
+KERNEL_C_OBJ=$(patsubst $(SRC_DIR)/%.c,$(BIN_DIR)/%.o,$(KERNEL_C))
+ZEROES_OBJ=$(patsubst $(BOOT_DIR)/%.asm,$(BIN_DIR)/%.bin,$(ZEROES_ASM))
 
-kernel: $(BIN_DIR)/full_kernel.bin
+# Final binary
+OS_BIN=$(BIN_DIR)/OS.bin
 
-run: $(BIN_DIR)/OS.bin
-	$(QEMU) -drive format=raw,file="$<",index=0,if=floppy -m 128M
+# Compiler flags
+CFLAGS=-ffreestanding -m32 -g $(addprefix -I, $(INC_DIR))
 
-$(BIN_DIR)/bootloader.bin: $(wildcard $(BOOT_DIR)/*.asm)
-	$(NASM) $(NASM_FLAGS) $(BOOT_DIR)/boot.asm -o $@
+# Linker flags
+LDFLAGS=-m elf_i386 -Ttext 0x1000 --ignore-unresolved-symbol _GLOBAL_OFFSET_TABLE_ --oformat binary
 
-$(BIN_DIR)/cheese.bin: $(wildcard $(BOOT_DIR)/*.asm)
-	$(NASM) $(NASM_FLAGS) $(BOOT_DIR)/boot.asm -o $@
+# Build targets
+all: $(OS_BIN)
 
-$(BIN_DIR)/%.o: $(KERNEL_DIR)/%.asm
-	$(NASM) -f elf32 $< -o $@
+$(OS_BIN): $(BOOTLOADER_OBJ) $(KERNEL_ASM_OBJ) $(KERNEL_C_OBJ) $(ZEROES_OBJ)
+	cat $(BOOTLOADER_OBJ) $(KERNEL_ASM_OBJ) $(KERNEL_C_OBJ) $(ZEROES_OBJ) > $(OS_BIN)
 
-$(BIN_DIR)/%.o: $(KERNEL_DIR)/%.c
-	$(GCC) $(GCC_FLAGS) -c $< -o $@
+$(BOOTLOADER_OBJ): $(BOOT_ASM)
+	$(NASM) -f bin $< -o $@
 
-$(BIN_DIR)/full_kernel.bin: $(wildcard $(KERNEL_DIR)/*.c) $(wildcard $(KERNEL_DIR)/*.asm)
-	$(GCC) $(GCC_FLAGS) -c $^ -o $(BIN_DIR)/kernel.o
-	$(NASM) -f elf32 $(KERNEL_DIR)/kernel_entry.asm -o $(BIN_DIR)/kernel_asm.o
-	$(LD) $(LD_FLAGS) -o $@ $(BIN_DIR)/kernel.o $(BIN_DIR)/kernel_asm.o
+$(KERNEL_ASM_OBJ): $(KERNEL_ASM)
+	$(NASM) -f elf $< -o $@
 
-$(BIN_DIR)/OS.bin: $(BIN_DIR)/bootloader.bin $(BIN_DIR)/full_kernel.bin $(BIN_DIR)/zeroes.bin
-	cat "$(BIN_DIR)/bootloader.bin" "$(BIN_DIR)/full_kernel.bin" "$(BIN_DIR)/zeroes.bin" > "$(BIN_DIR)/OS.bin"
+$(BIN_DIR)/%.o: $(SRC_DIR)/%.c $(KERNEL_HEADERS)
+	$(GCC) $(CFLAGS) -c $< -o $@
 
-cheese_install: $(BIN_DIR)/OS.bin
-	./$(TOOLS_DIR)/cheese_install.sh $(BIN_DIR)/cheese.bin $^ $(BIN_DIR)/OS.bin
+$(ZEROES_OBJ): $(ZEROES_ASM)
+	$(NASM) -f bin $< -o $@
+
+run: $(OS_BIN)
+	$(QEMU) -serial stdio -drive format=raw,file=$(OS_BIN),index=0,if=floppy -m 128M
 
 clean:
 	rm -rf $(BIN_DIR)/*
 
-.PHONY: all bootloader kernel run cheese_install clean
+.PHONY: all run clean

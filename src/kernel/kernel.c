@@ -1,7 +1,7 @@
-#include "lib/serial.h"
+#include <graphics.h>
 
 void main()
 {
-    outb8(QEMU_SERIAL_PORT, 'A');
+    line_d(10, 10, 70, 0x0f);
     return;
 }
